@@ -125,11 +125,11 @@ def process_command_request():
 
     if state.get('Pump') !=  command_request.get('Pump'):
         print "Pump Request"
-        if command_request.get('Fan') == 0:
+        if command_request.get('Pump') == 0:
             send_command_arduino("BLUEOFF")
             print "Pump OFF"
 
-        if command_request.get('Fan') == 1:
+        if command_request.get('Pump') == 1:
             send_command_arduino("BLUEON")
             print "Pump ON"
 
