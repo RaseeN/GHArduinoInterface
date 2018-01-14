@@ -110,7 +110,6 @@ def process_command_request():
             print "Valve ON"
             update_state_command("Valve", 1)
 
-
     if state.get('Fan') != command_request.get('Fan'):
         print "Fan Request"
         if command_request.get('Fan') == 0:
@@ -123,15 +122,17 @@ def process_command_request():
             print "Fan ON"
             update_state_command("Fan", 1)
 
-    if state.get('Pump') !=  command_request.get('Pump'):
+    if state.get('Pump') != command_request.get('Pump'):
         print "Pump Request"
         if command_request.get('Pump') == 0:
             send_command_arduino("BLUEOFF")
             print "Pump OFF"
+            update_state_command("Pump", 0)
 
         if command_request.get('Pump') == 1:
             send_command_arduino("BLUEON")
             print "Pump ON"
+            update_state_command("Pump", 1)
 
 def send_command_arduino(command):
     ACK = ""
@@ -150,7 +151,7 @@ def update_state_command(Equipment, state):
 
     cursor = cnx.cursor()
     # UPDATE `db_green_test`.`commandes` SET `State`='1', `Command`='1' WHERE `Equipement`='Fan';
-    cursor.execute("UPDATE commandes SET State=%s, Command=%s WHERE Equipement=%s", (int(state),int(state), Equipment))
+    cursor.execute("UPDATE commandes SET State=%s WHERE Equipement=%s", (int(state), Equipment))
     cnx.commit()
     close_green_db(cnx)
 
