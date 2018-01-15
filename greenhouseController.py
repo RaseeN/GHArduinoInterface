@@ -18,7 +18,7 @@ time.sleep(4)   # we wait a little, so that the Arduino is ready.
 
 
 def open_green_db():
-    """ Database Connection and open """
+    """ Function to open Database connection and database handle. """
     try:
         cnx = mysql.connector.connect(user='root',
                                       database='db_green_test')
@@ -34,13 +34,16 @@ def open_green_db():
         return cnx
 
 
-''' Closing Database connector '''
 def close_green_db(cnx):
+    """ Function to Close Database connection """
     if cnx is not None:
         cnx.close
 
-''' Get Equipment State '''
+
 def get_equipment_state():
+    """ Function to get Equipment State and return dictionary of
+    Equipment and its active state.
+    """
     cnx = open_green_db()
     if cnx is None:
         return None
@@ -54,8 +57,11 @@ def get_equipment_state():
     close_green_db(cnx)
     return equipment_state
 
-''' Get Equipment State '''
+
 def get_equipment_command():
+    """ Function to get Equipment Command Request from web and return dictionary of
+    Equipment and its active command request.
+    """
     cnx = open_green_db()
     if cnx is None:
         return None
@@ -71,6 +77,7 @@ def get_equipment_command():
 
 
 def process_command_request():
+    """ Process Command Request from website and update Active state accordingly """
     state = get_equipment_state()
     command_request = get_equipment_command()
 
@@ -134,17 +141,22 @@ def process_command_request():
             print "Pump ON"
             update_state_command("Pump", 1)
 
+
 def send_command_arduino(command):
+    """ Function to Send command to Arduino device via Serial Port. """
     ACK = ""
     while True:
         try:
             ser.write(command)
+            ser.flush()
             ACK = str(ser.readline())
             if not ACK == "OK": break
         except:
             ''''''
 
+
 def update_state_command(Equipment, state):
+    """ Update Active state to Database. """
     cnx = open_green_db()
     if cnx is None:
         return None
@@ -154,6 +166,7 @@ def update_state_command(Equipment, state):
     cursor.execute("UPDATE commandes SET State=%s WHERE Equipement=%s", (int(state), Equipment))
     cnx.commit()
     close_green_db(cnx)
+
 
 if __name__ == "__main__":
     all_state = get_equipment_state()
