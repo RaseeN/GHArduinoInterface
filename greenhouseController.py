@@ -76,6 +76,23 @@ def get_equipment_command():
     return equipment_command
 
 
+def get_device_id():
+    """ Function to get Equipment State and return dictionary of
+    Equipment and its active state.
+    """
+    cnx = open_green_db()
+    if cnx is None:
+        return None
+
+    query = "SELECT Type, IdType from types"
+
+    cursor = cnx.cursor()
+    cursor.execute(query)
+    device_id = {Type: IdType for (Type, IdType) in cursor}
+
+    close_green_db(cnx)
+    return device_id
+
 def process_command_request():
     """ Process Command Request from website and update Active state accordingly """
     state = get_equipment_state()
@@ -96,48 +113,48 @@ def process_command_request():
     if state.get('Lamp') != command_request.get('Lamp'):
         print "Lamp Request"
         if command_request.get('Lamp') == 0:
-            send_command_arduino("YELLOWOFF")
+            send_command_arduino("LAMPOFF")
             print "Lamp OFF"
             update_state_command("Lamp", 0)
 
         if command_request.get('Lamp') == 1:
-            send_command_arduino("YELLOWON")
+            send_command_arduino("LAMPON")
             print "Lamp ON"
             update_state_command("Lamp", 1)
 
     if state.get('Valve') != command_request.get('Valve'):
         print "Valve Request"
         if command_request.get('Valve') == 0:
-            send_command_arduino("GREENOFF")
+            send_command_arduino("VALVEOFF")
             print "Valve OFF"
             update_state_command("Valve", 0)
 
         if command_request.get('Valve') == 1:
-            send_command_arduino("GREENON")
+            send_command_arduino("VALVEON")
             print "Valve ON"
             update_state_command("Valve", 1)
 
     if state.get('Fan') != command_request.get('Fan'):
         print "Fan Request"
         if command_request.get('Fan') == 0:
-            send_command_arduino("REDOFF")
+            send_command_arduino("FANOFF")
             print "Fan OFF"
             update_state_command("Fan", 0)
 
         if command_request.get('Fan') == 1:
-            send_command_arduino("REDON")
+            send_command_arduino("FANON")
             print "Fan ON"
             update_state_command("Fan", 1)
 
     if state.get('Pump') != command_request.get('Pump'):
         print "Pump Request"
         if command_request.get('Pump') == 0:
-            send_command_arduino("BLUEOFF")
+            send_command_arduino("PUMPOFF")
             print "Pump OFF"
             update_state_command("Pump", 0)
 
         if command_request.get('Pump') == 1:
-            send_command_arduino("BLUEON")
+            send_command_arduino("PUMPON")
             print "Pump ON"
             update_state_command("Pump", 1)
 
@@ -150,22 +167,77 @@ def send_command_arduino(command):
             ser.write(command)
             ser.flush()
             ACK = str(ser.readline())
-            if not ACK == "OK": break
+            if not ACK == "OK":
+                break
         except:
-            ''''''
+            print("send_command_arduino: Exception in serial port")
 
 
-def update_state_command(Equipment, state):
+def update_state_command(equipment, state):
     """ Update Active state to Database. """
     cnx = open_green_db()
     if cnx is None:
         return None
 
     cursor = cnx.cursor()
-    # UPDATE `db_green_test`.`commandes` SET `State`='1', `Command`='1' WHERE `Equipement`='Fan';
-    cursor.execute("UPDATE commandes SET State=%s WHERE Equipement=%s", (int(state), Equipment))
+    cursor.execute("UPDATE commandes SET State=%s WHERE Equipement=%s",
+                   (int(state), equipment))
     cnx.commit()
     close_green_db(cnx)
+
+
+def get_measure_arduino(command):
+    """ Function to get Measurement from Arduino """
+
+    while True:
+        try:
+            ser.write(command)
+            ser.flush()
+            value = ser.readline()
+            if not value == "":
+                break
+        except:
+            print "Error accessing serial port"
+            return None
+
+    return value
+
+
+def update_measure_db(equipment_id, value):
+    """ Function to update Measurement to DB """
+    cnx = open_green_db()
+    if cnx is None:
+        return None
+
+    cursor = cnx.cursor()
+    cursor.execute("INSERT INTO mesures(IdType,Date,Valeur) VALUES(%s,%s,%s)",
+                   (equipment_id, time.strftime('%y/%m/%d %H:%M:%S', time.localtime()), value))
+    cnx.commit()
+    close_green_db(cnx)
+
+
+def process_measurement():
+    """ Function to Process Measurement for each device """
+    device_id = get_device_id()
+    temp_int = get_measure_arduino("TEMPINT")
+    if temp_int is not None:
+        update_measure_db(device_id.get("Temperature_int"), temp_int)
+
+    temp_ext = get_measure_arduino("TEMPEXT")
+    if temp_ext is not None:
+        update_measure_db(device_id.get("Temperature_ext"), temp_ext)
+
+    humidity = get_measure_arduino("HUMID")
+    if humidity is not None:
+        update_measure_db(device_id.get("Humidity"), humidity)
+
+    luminosity = get_measure_arduino("LUMIN")
+    if luminosity is not None:
+        update_measure_db(device_id.get("Luminosity"), luminosity)
+
+    moisture = get_measure_arduino("MOIST")
+    if moisture is not None:
+        update_measure_db(device_id.get("Moisture"), moisture)
 
 
 if __name__ == "__main__":
