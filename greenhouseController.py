@@ -211,7 +211,7 @@ def update_measure_db(equipment_id, value):
 
     cursor = cnx.cursor()
     cursor.execute("INSERT INTO mesures(IdType, Date, Value) VALUES(%s,%s,%s)",
-                   (equipment_id, time.strftime('%y/%m/%d %H:%M:%S', time.localtime()), value))
+                   (equipment_id, time.strftime('%y/%m/%d %H:%M:%S', time.localtime()), float(value)))
     cnx.commit()
     close_green_db(cnx)
 
