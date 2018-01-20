@@ -58,6 +58,24 @@ def get_equipment_state():
     return equipment_state
 
 
+def get_equipment_mode():
+    """ Function to get Equipment Mode and return dictionary of
+    Equipment and its active Mode.
+    """
+    cnx = open_green_db()
+    if cnx is None:
+        return None
+
+    query = "SELECT Equipement, Mode from commandes"
+
+    cursor = cnx.cursor()
+    cursor.execute(query)
+    equipment_mode = {Equipement: Mode for (Equipement, Mode) in cursor}
+
+    close_green_db(cnx)
+    return equipment_mode
+
+
 def get_equipment_command():
     """ Function to get Equipment Command Request from web and return dictionary of
     Equipment and its active command request.
@@ -159,6 +177,39 @@ def process_command_request():
             update_state_command("Pump", 1)
 
 
+def init_device_state():
+    """ Function to  initiate Device state based on Configured from Database"""
+    state = get_equipment_state()
+
+    if ser is None:
+        print("Error in accessing Serial port!")
+        return
+
+    if state is None:
+        print "Error Getting State from Database"
+        return
+
+    if state.get("Lamp") == 0:
+        send_command_arduino("LAMPOFF")
+    else:
+        send_command_arduino("LAMPON")
+
+    if state.get("Valve") == 0:
+        send_command_arduino("VALVEOFF")
+    else:
+        send_command_arduino("VALVEON")
+
+    if state.get("Pump") == 0:
+        send_command_arduino("PUMPOFF")
+    else:
+        send_command_arduino("PUMPON")
+
+    if state.get("Fan") == 0:
+        send_command_arduino("FANOFF")
+    else:
+        send_command_arduino("FANON")
+
+
 def send_command_arduino(command):
     """ Function to Send command to Arduino device via Serial Port. """
     ACK = ""
@@ -243,9 +294,17 @@ def process_measurement():
 if __name__ == "__main__":
     all_state = get_equipment_state()
     all_command = get_equipment_command()
+
     print all_state
     print all_command
+    init_device_state()
+
     while True:
-        process_command_request()
+        all_mode = get_equipment_mode()
+        # Process command request only when any Equipment is manual mode
+        if 1 in all_mode.values():
+            process_command_request()
+
         process_measurement()
+
         time.sleep(1)
