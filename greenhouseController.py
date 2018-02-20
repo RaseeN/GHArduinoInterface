@@ -9,7 +9,7 @@ from mysql.connector import errorcode
 import serial   # Library for serial communication
 
 try:
-    serial = serial.Serial('/dev/cu.usbmodemFA131', 9600, timeout=0.5)
+    serial = serial.Serial('/dev/cu.usbmodemFD121', 9600, timeout=0.5)
 except:
     print "Exception in serial port"
     serial = None
@@ -168,6 +168,7 @@ def process_command_request():
     """ Process Command Request from website and update Active state accordingly """
     state = get_equipment_state()
     command_request = get_equipment_command()
+    device_mode = get_equipment_mode()
 
     if serial is None:
         print "Error in accessing Serial port!"
@@ -181,6 +182,24 @@ def process_command_request():
         print "Error Getting Command from Database"
         return
 
+    if device_mode is None:
+        print "Error Getting Command from Database"
+        return
+
+    if device_mode.get("Lamp") == 1:
+        process_lamp_command_request(state, command_request)
+
+    if device_mode.get("Fan") == 1:
+        process_fan_command_request(state, command_request)
+
+    if device_mode.get("Valve") == 1:
+        process_valve_command_request(state, command_request)
+
+    if device_mode.get("Pump") == 1:
+        process_pump_command_request(state, command_request)
+
+
+def process_lamp_command_request(state, command_request):
     if state.get('Lamp') != command_request.get('Lamp'):
         print "Lamp Request"
         if command_request.get('Lamp') == 0:
@@ -193,18 +212,8 @@ def process_command_request():
             print "Lamp ON"
             update_state_command("Lamp", 1)
 
-    if state.get('Valve') != command_request.get('Valve'):
-        print "Valve Request"
-        if command_request.get('Valve') == 0:
-            send_command_arduino("VALVEOFF")
-            print "Valve OFF"
-            update_state_command("Valve", 0)
 
-        if command_request.get('Valve') == 1:
-            send_command_arduino("VALVEON")
-            print "Valve ON"
-            update_state_command("Valve", 1)
-
+def process_fan_command_request(state, command_request):
     if state.get('Fan') != command_request.get('Fan'):
         print "Fan Request"
         if command_request.get('Fan') == 0:
@@ -217,6 +226,22 @@ def process_command_request():
             print "Fan ON"
             update_state_command("Fan", 1)
 
+
+def process_valve_command_request(state, command_request):
+    if state.get('Valve') != command_request.get('Valve'):
+        print "Valve Request"
+        if command_request.get('Valve') == 0:
+            send_command_arduino("VALVEOFF")
+            print "Valve OFF"
+            update_state_command("Valve", 0)
+
+        if command_request.get('Valve') == 1:
+            send_command_arduino("VALVEON")
+            print "Valve ON"
+            update_state_command("Valve", 1)
+
+
+def process_pump_command_request(state, command_request):
     if state.get('Pump') != command_request.get('Pump'):
         print "Pump Request"
         if command_request.get('Pump') == 0:
@@ -360,14 +385,14 @@ def process_valve_auto_mode(current_state):
 
     if current_state == 0:
         # In Case of Dry State, turn valve ON
-        if low_threshold < current_moisture:
+        if float(low_threshold) < float(current_moisture):
             send_command_arduino("VALVEON")
             print "VALVE ON"
             update_state_command("Valve", 1)
 
     if current_state == 1:
         # In Case of Wet State, turn Valve OFF
-        if high_threshold >= current_moisture:
+        if float(high_threshold) >= float(current_moisture):
             send_command_arduino("VALVEOFF")
             print "VALVE OFF"
             update_state_command("Valve", 0)
@@ -387,14 +412,14 @@ def process_fan_auto_mode(current_state):
         return
 
     if current_state == 0:
-        if setpoint > current_temp_int:
+        if float(setpoint) > float(current_temp_int):
             send_command_arduino("FANON")
             print "Fan ON"
             update_state_command("Fan", 1)
 
     # If Fan state is already ON, check for temperature is already below delta
     if current_state == 1:
-        if current_temp_int < (setpoint - delta):
+        if float(current_temp_int) < float(setpoint - delta):
             send_command_arduino("FANOFF")
             print "Fan OFF"
             update_state_command("Fan", 0)
@@ -404,7 +429,7 @@ def process_lamp_auto_mode(current_state):
     """ Function to process Lamp auto mode based on Luminosity Level. """
     current_luminosity = get_measure_arduino("LUMIN")
     low_threshold, high_threshold = get_luminosity_threshold()
-
+    print current_luminosity, low_threshold, high_threshold, current_state
     if low_threshold is None:
         print "Luminosity  Low Threshold is NULL"
         return
@@ -414,15 +439,18 @@ def process_lamp_auto_mode(current_state):
         return
 
     if current_state == 0:
-        if current_luminosity < low_threshold:
+        print "Lamp State is OFF"
+        if float(current_luminosity) < float(low_threshold):
+            print "Turn on Autp Lamp"
             send_command_arduino("LAMPON")
-            print "LAMP ON"
+            print "AUTO LAMP ON"
             update_state_command("Lamp", 1)
 
     if current_state == 1:
-        if current_luminosity >= high_threshold:
+        print "Lamp State is ON"
+        if float(current_luminosity) >= float(high_threshold):
             send_command_arduino("LAMPOFF")
-            print "Lamp OFF"
+            print "AUTO Lamp OFF"
             update_state_command("Lamp", 0)
 
 
@@ -432,12 +460,15 @@ def process_auto_mode():
     device_mode = get_equipment_mode()
 
     if device_mode.get("Fan") == 0:
+        print "Processing Fan Auto Mode"
         process_fan_auto_mode(device_state.get("Fan"))
 
     if device_mode.get("Lamp") == 0:
+        print "Processing Lamp Auto Mode"
         process_lamp_auto_mode(device_state.get("Lamp"))
 
     if device_mode.get("Valve") == 0:
+        print "Processing Valve Auto Mode"
         process_valve_auto_mode(device_state.get("Valve"))
 
 
